@@ -1,39 +1,21 @@
-Provides caching by versions for different actions on any given controller. You declare in
-the controller what action should be version cached based on the version of which model.
-It also provides a way for time caching.
+What is it?
+-----------
+A Ruby on rails (v2.1.0) plugin that provides additional caching features.
+Version caching is similar to action caching but it solves one major problem.
+It solves the problem of having to expire your cached stuff via the provided rails methods. Instead, it relies on versions.
+For example, say we have a PostsController and a corresponding Post model and we need to cache the show action of the PostsController.
 
-To version cache an action put the following line in the controller
+For generating a response to the request http://localhost:3000/posts/1 the following will happen
+1. Check the version of Post with id 1 from cache store with the key "Post_1"
+2. if not found then the version is assumed to be 0
+3. The cache store is queried using a key that's composed of the request's url + the version.
+4. If the cache hits then the response is fetched from the cache but if it misses then the response is generated normally and stored in the cache.
 
-	version_cache Item, :associates => ["user"], :expiry => 20, :browser_cache_enabled => true
-	
-	Item: model whose version is used
-	associates: a list of members on the Item whose versions should be changed as well
-	expiry: 0 means don't expire, any other number is taken to be a maximum time to cache (in minutes)
-	browser_cache_enabled: true or false to set the Expires header
-	
-if used without declaring an :action option then the show action is the one that'll be used.
+However there needs to be some means to change the versions. This is achieved using observers. A cache observer will observe the model and change its version upon creation, updating, or deletion.
 
-To time cache an action
+The first time a request is made to http://localhost:3000/posts/1, the page is stored in the cache store with the key "localhost.:posts/1:0". Subsequent requests will be served from cache until an update is made to post 1 which will cause the version to become 1.
 
-	time_cache :action => :index, :expiry => 20, :browser_cache_enabled => true
-	
-For controllers on which some actions affect other models there's a convenience method
-
-	version_cache_updater Profile, :associates => ["user"]
-	
-	this means that whenever profile object is updated or destroyed then its user's version
-	should be incremented as well.
-	
-	
-Other convenience methods
--------------------------
-version_cache_model_id
-
-version_cache_key_part : this can be used if we want to cache multiple versions of the same
-page....this function should return a string that determines which version is this page
-Features
---------
-
+One more feature of the plugin is time caching.
 
 Setup
 -----
@@ -50,3 +32,41 @@ After installing the version_cache plugin you'll need to do the following
 
 2. Register the observer in your environment
 	config.active_record.observers ObserverName
+
+
+Usage
+-----
+To version cache an action put the following line in the controller
+
+	version_cache Item, :associates => ["user"], :expiry => 20, :browser_cache_enabled => true
+	
+	Item: model whose version is used
+	associates: a list of members on the Item whose versions should be changed as well
+	expiry: 0 means don't expire, any other number is taken to be a maximum time to cache (in minutes)
+	browser_cache_enabled: true or false to set the Expires header
+	
+if used without declaring an :action option then the show action is the one that'll be used.
+
+To time cache an action
+
+	time_cache :index => {:expiry => 20, :browser_cache_enabled => true}
+	
+For controllers on which some actions affect other models there's a convenience method
+
+	version_cache_updater Profile, :associates => ["user"]
+	
+	this means that whenever profile object is updated or destroyed then its user's version
+	should be incremented as well.
+	
+	
+Other convenience methods
+-------------------------
+version_cache_model_id
+
+version_cache_key_part: this can be used if we want to cache multiple versions of the same
+page....this function should return a string that determines which version is this page
+for example in a controller that uses version or time caching for its show action, assume that the show action shows 2 versions to 2 types of users
+
+def version_cache_key_part
+  current_user.type_1? ? "one" : "two"
+end
