@@ -1,0 +1,52 @@
+Provides caching by versions for different actions on any given controller. You declare in
+the controller what action should be version cached based on the version of which model.
+It also provides a way for time caching.
+
+To version cache an action put the following line in the controller
+
+	version_cache Item, :associates => ["user"], :expiry => 20, :browser_cache_enabled => true
+	
+	Item: model whose version is used
+	associates: a list of members on the Item whose versions should be changed as well
+	expiry: 0 means don't expire, any other number is taken to be a maximum time to cache (in minutes)
+	browser_cache_enabled: true or false to set the Expires header
+	
+if used without declaring an :action option then the show action is the one that'll be used.
+
+To time cache an action
+
+	time_cache :action => :index, :expiry => 20, :browser_cache_enabled => true
+	
+For controllers on which some actions affect other models there's a convenience method
+
+	version_cache_updater Profile, :associates => ["user"]
+	
+	this means that whenever profile object is updated or destroyed then its user's version
+	should be incremented as well.
+	
+	
+Other convenience methods
+-------------------------
+version_cache_model_id
+
+version_cache_key_part : this can be used if we want to cache multiple versions of the same
+page....this function should return a string that determines which version is this page
+Features
+--------
+
+
+Setup
+-----
+After installing the version_cache plugin you'll need to do the following
+1. Generate the version_cache_observer using the supplied generator as follows
+	ruby script/generate version_cache_observer ObserverName Model1 Model2
+
+	Example:
+		ruby script/generate version_cache_observer Cache Post Topic
+
+		This will create:
+    	Observer:      app/models/cache_observer.rb
+      The cache_observer will observe Topic and Post models
+
+2. Register the observer in your environment
+	config.active_record.observers ObserverName

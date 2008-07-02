@@ -1,0 +1,19 @@
+Description:
+    The version_cache_observer generator creates an observer for use with the version_cache plugin.
+    It maintains models versions in cache.
+
+    The first argument is interpreted as the observer's name.
+    The following arguments are taken to be the models which the observer will observe.
+
+    The generator creates the observer class in app/models
+
+Example:
+    ./script/generate version_cache_observer Cache Topic Post
+
+    This will create:
+        Observer:      app/models/cache_observer.rb
+        The cache_observer will observe Topic and Post models
+        
+
+    You should then run 'rake db:migrate'.
+
