@@ -1,3 +1,28 @@
+module ActiveRecord
+  module Espace
+    module VersionCache
+      module InstanceMethods
+        
+        def cache_version
+          key = self.class.name + "_#{self.id}"
+          unless(version = Rails.cache.read(key))
+            version = 0
+          end
+          version
+        end
+        
+        def increment_cache_version
+          key = self.class.name + "_#{self.id}"
+          unless(version = Rails.cache.read(key))
+            version = 0
+          end
+          Rails.cache.write(key, version + 1)
+        end
+      end
+    end
+  end
+end
+
 module ActionController
   module Espace
     module VersionCache
@@ -123,3 +148,4 @@ module ActionController
 end
 
 ActionController::Base.send(:include, ActionController::Espace::VersionCache)
+ActiveRecord::Base.send(:include, ActiveRecord::Espace::VersionCache::InstanceMethods)
