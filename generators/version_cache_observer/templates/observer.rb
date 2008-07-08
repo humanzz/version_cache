@@ -26,9 +26,7 @@ class <%=observer_name%>Observer < ActiveRecord::Observer
     end
   end
   
-  def update_version(obj)
-    key = "#{obj.class.name}_#{obj.id}"
-    version = 0 unless(version = Rails.cache.read(key))
-    Rails.cache.write(key, version + 1)    
+  def update_version(record)
+    record.increment_cache_version
   end  
 end
