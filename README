@@ -1,5 +1,6 @@
-What is it?
------------
+VersionCache
+===========
+
 A Ruby on rails (v2.1.0) plugin that provides additional caching features.
 Version caching is similar to action caching but it solves one major problem.
 It solves the problem of having to expire your cached stuff via the provided rails methods. Instead, it relies on versions.
@@ -17,8 +18,17 @@ The first time a request is made to http://localhost:3000/posts/1, the page is s
 
 One more feature of the plugin is time caching.
 
+
+Introducing the plugin blog entry
+=================================
+http://humanzz.spaces.live.com/blog/cns!82322F9506CB0449!713.entry
+
+
 Setup
------
+=====
+
+	ruby script/plugin install git://github.com/humanzz/version_cache.git
+
 After installing the version_cache plugin you'll need to do the following
 1. Generate the version_cache_observer using the supplied generator as follows
 	ruby script/generate version_cache_observer ObserverName Model1 Model2
@@ -35,7 +45,8 @@ After installing the version_cache plugin you'll need to do the following
 
 
 Usage
------
+=====
+
 To version cache an action put the following line in the controller
 
 	version_cache Item, :associates => ["user"], :expiry => 20, :browser_cache_enabled => true
@@ -60,7 +71,7 @@ For controllers on which some actions affect other models there's a convenience 
 	
 	
 Other convenience methods
--------------------------
+=========================
 version_cache_model_id
 
 version_cache_key_part: this can be used if we want to cache multiple versions of the same
@@ -70,3 +81,5 @@ for example in a controller that uses version or time caching for its show actio
 def version_cache_key_part
   current_user.type_1? ? "one" : "two"
 end
+
+Copyright (c) 2008 humanzz (Ahmed Sobhi), released under the MIT license
