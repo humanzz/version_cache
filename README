@@ -47,9 +47,14 @@ After installing the version_cache plugin you'll need to do the following
 Usage
 =====
 
-To version cache an action put the following line in the controller
+* To version cache an action put the following line in the controller
 
+class ItemsController < ApplicationController
+	.
 	version_cache Item, :associates => ["user"], :expiry => 20, :browser_cache_enabled => true
+	.
+	.
+end
 	
 	Item: model whose version is used
 	associates: a list of members on the Item whose versions should be changed as well
@@ -58,11 +63,17 @@ To version cache an action put the following line in the controller
 	
 if used without declaring an :action option then the show action is the one that'll be used.
 
-To time cache an action
+* To time cache an action
 
+class WelcomeController < ApplicationController
+  .
+  .
 	time_cache :index => {:expiry => 20, :browser_cache_enabled => true}
-	
-For controllers on which some actions affect other models there's a convenience method
+	.
+	.
+end
+
+* For controllers on which some actions affect other models there's a convenience method
 
 	version_cache_updater Profile, :associates => ["user"]
 	
@@ -72,14 +83,39 @@ For controllers on which some actions affect other models there's a convenience 
 	
 Other convenience methods
 =========================
-version_cache_model_id
+These are methods that can be overriden in your controllers to provide some effect
 
-version_cache_key_part: this can be used if we want to cache multiple versions of the same
+* version_cache_model_id
+
+Consider the case of the url http://localhost:3000/users/59/profile. If you want to cache that page based on the user model's version,
+then you should do the following
+
+class ProfilesController < ApplicationController
+	.
+	version_cache User
+	.
+	
+	def version_cache_model_id
+		params[:user_id]
+	end
+end
+
+* version_cache_key_part
+
+This can be used if we want to cache multiple versions of the same
 page....this function should return a string that determines which version is this page
 for example in a controller that uses version or time caching for its show action, assume that the show action shows 2 versions to 2 types of users
 
-def version_cache_key_part
-  current_user.type_1? ? "one" : "two"
+class WelcomeController < ApplicationController
+  .
+  .
+	time_cache :index => {:expiry => 20, :browser_cache_enabled => true}
+	.
+	.
+	def version_cache_key_part
+	  current_user.type_1? ? "one" : "two"
+	end
 end
+
 
 Copyright (c) 2008 humanzz (Ahmed Sobhi), released under the MIT license
