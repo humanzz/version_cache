@@ -19,11 +19,7 @@ class <%=observer_name%>Observer < ActiveRecord::Observer
   def update_for_change(record)
     return unless ActionController::Base.perform_caching
     update_version(record)
-    if record.class.respond_to?(:cache_associates)
-      record.class.cache_associates.each do |a|
-        update_version(eval("record.#{a}"))
-      end
-    end
+    record.cache_associates.each {|ca| update_version(ca)}
   end
   
   def update_version(record)
