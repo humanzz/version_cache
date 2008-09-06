@@ -51,14 +51,13 @@ Usage
 
 class ItemsController < ApplicationController
 	.
-	version_cache Item, :expiry => 20, :browser_cache_enabled => true
+	version_cache Item, :expiry => 20
 	.
 	.
 end
 	
 	Item: model whose version is used
 	expiry: 0 means don't expire, any other number is taken to be a maximum time to cache (in minutes)
-	browser_cache_enabled: true or false to set the Expires header
 	
 if used without declaring an :action option then the show action is the one that'll be used.
 
@@ -67,7 +66,7 @@ if used without declaring an :action option then the show action is the one that
 class WelcomeController < ApplicationController
   .
   .
-	time_cache :index => {:expiry => 20, :browser_cache_enabled => true}
+	time_cache :index => {:expiry => 20}
 	.
 	.
 end
@@ -122,7 +121,7 @@ for example in a controller that uses version or time caching for its show actio
 class WelcomeController < ApplicationController
   .
   .
-	time_cache :index => {:expiry => 20, :browser_cache_enabled => true}
+	time_cache :index => {:expiry => 20}
 	.
 	.
 	def version_cache_key_part
