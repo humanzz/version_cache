@@ -51,13 +51,12 @@ Usage
 
 class ItemsController < ApplicationController
 	.
-	version_cache Item, :associates => ["user"], :expiry => 20, :browser_cache_enabled => true
+	version_cache Item, :expiry => 20, :browser_cache_enabled => true
 	.
 	.
 end
 	
 	Item: model whose version is used
-	associates: a list of members on the Item whose versions should be changed as well
 	expiry: 0 means don't expire, any other number is taken to be a maximum time to cache (in minutes)
 	browser_cache_enabled: true or false to set the Expires header
 	
@@ -73,12 +72,26 @@ class WelcomeController < ApplicationController
 	.
 end
 
-* For controllers on which some actions affect other models there's a convenience method
+* An additional feature is that some models updates should not only change their versions, but
+  versions of other models as well.
+  For example, we have ItemsController and Item model and User model where an item belongs to a user,
+  and we want the user's version to change when the item's vesion change. We do the following
+  
+class ItemsController < ApplicationController
+  .
+  version_cache Item
+  .
+  .
+end
 
-	version_cache_updater Profile, :associates => ["user"]
+class Item < ActiveRecord::Base
+  belongs_to :user
+  
+  has_cache_associates :user
+end
 	
-	this means that whenever profile object is updated or destroyed then its user's version
-	should be incremented as well.
+Now whenever an item is created, updated or destroyed not only will its version be incremented but
+it's user's version as well.
 	
 	
 Other convenience methods
