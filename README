@@ -66,10 +66,15 @@ if used without declaring an :action option then the show action is the one that
 class WelcomeController < ApplicationController
   .
   .
-	time_cache :index => {:expiry => 20}
+	time_cache :index => {:expiry => 20} #cache for 20 minutes
+	time_cache :show => {:expiry => 5, :browser_cache => true}
 	.
 	.
 end
+	:expiry is the amount of time in minutes
+	:browser_cache => (true|false) which causes the insertion of expires and cache-control headers
+	so that the browser can serve the page from its local cache without even consulting your
+	application
 
 * An additional feature is that some models updates should not only change their versions, but
   versions of other models as well.

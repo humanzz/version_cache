@@ -62,6 +62,8 @@ module VersionCache
       # options: a hash which can accept any of the following
       # :action for specifying an action other than :show
       # :expiry to specify the maximum number of minutes to keep the page in the cache
+      # :browser_cache => (true|false) which sets the expires and cache-control headers if an expiry
+      # time is specified. It defaults to false
       def version_cache(model, options = {})
         return unless ::ActionController::Base.perform_caching
         include InstanceMethods unless self.included_modules.include?(VersionCache::ActionController::InstanceMethods)
@@ -86,10 +88,13 @@ module VersionCache
       end
       
       # Caches certain actions for a specified period of time
+      # It caches the page in the cache store and sets the etag header for the response
       # actions is a hash of the form {:action_name => action_options_hash}
-      # example: {:index => {:expiry => 10}, {:show => {:expiry => 5}}}
+      # example: {:index => {:expiry => 10}, {:show => {:expiry => 5, :browser_cache => true}}}
       # The action_options_hash options are
-      # :expiry to specify the maximum number of minutes to keep the page in the cache
+      # :expiry to specify the number of minutes to keep the page in the cache
+      # :browser_cache => (true|false) which sets the expires and cache-control headers if an expiry
+      # time is specified. It defaults to false      
       def time_cache(actions = {})
         return if(!::ActionController::Base.perform_caching || actions.keys.length == 0)
         include InstanceMethods unless self.included_modules.include?(VersionCache::ActionController::InstanceMethods)
@@ -130,7 +135,10 @@ module VersionCache
           return
         end
         
-        options = {:expiry => 0, :expires_header => false}
+        #disable rails conditional get handling
+        response.conditional_get_enabled = false
+        
+        options = {:expiry => 0, :browser_cache => false}
         options = options.merge(keys.delete_at(keys.length - 1)) if keys.length != 0 && keys[keys.length - 1].is_a?(Hash)
         key = "#{request.host}:#{request.request_uri}:#{keys * ':'}"
         etag = Digest::MD5.hexdigest(key)        
@@ -147,27 +155,61 @@ module VersionCache
         # Next check memcache
         if data = Rails.cache.read(key)
           # render from the cached values
-          response.headers["Content-Type"] = data[:content_type]
           response.headers["X-Cache"] = "HIT"
-          render :text=>data[:content], :status=>data[:status]
+          data[:headers].each {|k,v| response.headers[k] = v}
+          set_cache_headers(etag, data[:browser_cache], data[:cached_on], data[:cached_for])
+          render :text=>data[:body], :status=>data[:headers]["Status"]
 		      logger.info "version_cache: cache hit"
         else
           # Finally, yield, indicate we've missed then cache the response
           response.headers["X-Cache"] = "MISS"
+          response.conditional_get_enabled = false
           yield
           #cache 200 OK reposnes only
           if headers["Status"].to_i == 200
-            response.headers["ETag"] = etag
-            expiry = options[:expiry] == 0 ? 0 : (options[:expiry].minutes.from_now - Time.now).to_i
-            Rails.cache.write(key, {:content=>response.body, :status=> headers["Status"].to_i, :content_type=>(response.content_type || "text/html")}, :expires_in => expiry)
+            expiry = options[:expiry] = options[:expiry].minutes.to_i #to seconds
+            cached_on = Time.now
+            set_cache_headers(etag, options[:browser_cache], cached_on, expiry)
+            Rails.cache.write(key, {:body=>response.body,
+                                    :headers => {"Status" => response.headers["Status"],
+                                                 "Content-Type" => (response.content_type || "text/html")},
+                                    :browser_cache => options[:browser_cache],
+                                    :cached_on => cached_on,
+                                    :cached_for => expiry},
+                                    :expires_in => expiry)
           end
 		      logger.info "version_cache: cache miss"
-        end
+		    end
       end 
       
+      def set_cache_headers(etag, browser_cache, cached_on, cached_for)
+        if browser_cache && cached_for > 0
+          period = (cached_on + cached_for - Time.now).to_i
+          response.headers["Cache-Control"] = "public, max-age=#{period}"
+          response.headers["Expires"] = period.from_now.httpdate              
+        end
+        response.headers["ETag"] = etag        
+      end
     end
   end  
 end
 
 ActionController::Base.send(:include, VersionCache::ActionController)
 ActiveRecord::Base.send(:include, VersionCache::ActiveRecord)
+
+# A hack to enable to toggle automatic etagging on or off
+class ActionController::AbstractResponse
+  attr_accessor :conditional_get_enabled
+  
+  old_initialize = self.instance_method(:initialize)
+  old_handle_conditional_get = self.instance_method(:handle_conditional_get!)
+  
+  define_method(:initialize) do
+    old_initialize.bind(self).call
+    @conditional_get_enabled = true    
+  end
+  
+  define_method(:handle_conditional_get!) do
+    old_handle_conditional_get.bind(self).call if @conditional_get_enabled    
+  end
+end
