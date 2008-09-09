@@ -22,7 +22,7 @@ module VersionCache
           a = self.send(ca)
           ret << a if ca
         end
-        ret
+        ret.flatten
       end
       
       def cache_version
