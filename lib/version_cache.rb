@@ -20,7 +20,7 @@ module VersionCache
         ret = []
         self.class.cache_associates.each do |ca|
           a = self.send(ca)
-          ret << a if ca
+          ret << a if a
         end
         ret.flatten
       end
