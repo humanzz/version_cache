@@ -141,25 +141,28 @@ module VersionCache
         options = {:expiry => 0, :browser_cache => false}
         options = options.merge(keys.delete_at(keys.length - 1)) if keys.length != 0 && keys[keys.length - 1].is_a?(Hash)
         key = "#{request.host}:#{request.request_uri}:#{keys * ':'}"
-        etag = Digest::MD5.hexdigest(key)        
         
-        # first handle HTTP, lets us avoid a memcache hit
-        # and saves a huge amount of bandwidth to the client
+        data = Rails.cache.read(key)
+        # let the etag depend on time so that it varies for pages that don't have versions
+        etag = data.nil? ? Digest::MD5.hexdigest(key + Time.now.to_s(:db)) : data[:headers]["ETag"]
+        
+        # Was the data really modified?
         if request.env["HTTP_IF_NONE_MATCH"] == etag
           response.headers["X-Cache"] = "HTTP"
+          set_cache_headers(etag, data[:browser_cache], data[:cached_on], data[:cached_for])
           head :not_modified
-          logger.info "version_cache: 304 Not Modified"
+          logger.info "version_cache (#{key}): 304 Not Modified"
           return
         end
         
         # Next check memcache
-        if data = Rails.cache.read(key)
+        if data
           # render from the cached values
           response.headers["X-Cache"] = "HIT"
           data[:headers].each {|k,v| response.headers[k] = v}
           set_cache_headers(etag, data[:browser_cache], data[:cached_on], data[:cached_for])
           render :text=>data[:body], :status=>data[:headers]["Status"]
-		      logger.info "version_cache: cache hit"
+		      logger.info "version_cache (#{key}): cache hit"
         else
           # Finally, yield, indicate we've missed then cache the response
           response.headers["X-Cache"] = "MISS"
@@ -172,13 +175,14 @@ module VersionCache
             set_cache_headers(etag, options[:browser_cache], cached_on, expiry)
             Rails.cache.write(key, {:body=>response.body,
                                     :headers => {"Status" => response.headers["Status"],
-                                                 "Content-Type" => (response.content_type || "text/html")},
+                                                 "Content-Type" => (response.content_type || "text/html"),
+                                                 "ETag" => etag},
                                     :browser_cache => options[:browser_cache],
                                     :cached_on => cached_on,
                                     :cached_for => expiry},
                                     :expires_in => expiry)
           end
-		      logger.info "version_cache: cache miss"
+		      logger.info "version_cache (#{key}): cache miss"
 		    end
       end 
       
