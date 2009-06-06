@@ -142,6 +142,7 @@ module VersionCache
         options = options.merge(keys.delete_at(keys.length - 1)) if keys.length != 0 && keys[keys.length - 1].is_a?(Hash)
         key = "#{request.host}:#{request.request_uri}:#{keys * ':'}"
         
+        logger.info ">>>>key #{key}"
         data = Rails.cache.read(key)
         # let the etag depend on time so that it varies for pages that don't have versions
         etag = data.nil? ? Digest::MD5.hexdigest(key + Time.now.to_s(:db)) : data[:headers]["ETag"]
@@ -161,7 +162,7 @@ module VersionCache
           response.headers["X-Cache"] = "HIT"
           data[:headers].each {|k,v| response.headers[k] = v}
           set_cache_headers(etag, data[:browser_cache], data[:cached_on], data[:cached_for])
-          render :text=>data[:body], :status=>data[:headers]["Status"]
+          render :text=>data[:body], :status => 200
 		      logger.info "version_cache (#{key}): cache hit"
         else
           # Finally, yield, indicate we've missed then cache the response
@@ -169,13 +170,12 @@ module VersionCache
           response.conditional_get_enabled = false
           yield
           #cache 200 OK reposnes only
-          if headers["Status"].to_i == 200
+          if response.send(:nonempty_ok_response?)
             expiry = options[:expiry] = options[:expiry].minutes.to_i #to seconds
             cached_on = Time.now
             set_cache_headers(etag, options[:browser_cache], cached_on, expiry)
             Rails.cache.write(key, {:body=>response.body,
-                                    :headers => {"Status" => response.headers["Status"],
-                                                 "Content-Type" => (response.content_type || "text/html"),
+                                    :headers => {"Content-Type" => (response.content_type || "text/html"),
                                                  "ETag" => etag},
                                     :browser_cache => options[:browser_cache],
                                     :cached_on => cached_on,
@@ -192,7 +192,7 @@ module VersionCache
           response.headers["Cache-Control"] = "public, max-age=#{period}"
           response.headers["Expires"] = period.from_now.httpdate              
         end
-        response.headers["ETag"] = etag        
+        response.headers["ETag"] = etag
       end
     end
   end  
@@ -202,7 +202,7 @@ ActionController::Base.send(:include, VersionCache::ActionController)
 ActiveRecord::Base.send(:include, VersionCache::ActiveRecord)
 
 # A hack to enable to toggle automatic etagging on or off
-class ActionController::AbstractResponse
+class ActionController::Response
   attr_accessor :conditional_get_enabled
   
   old_initialize = self.instance_method(:initialize)
